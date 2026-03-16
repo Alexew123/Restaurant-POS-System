@@ -50,3 +50,42 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     return new_user
+
+@app.post("/item-types/", response_model=schemas.ItemTypeResponse)
+def create_item_type(item_type: schemas.ItemTypeCreate, db: Session = Depends(get_db)):
+    existing_type = db.query(models.ItemType).filter(models.ItemType.type == item_type.type).first()
+    if existing_type:
+        raise HTTPException(status_code=400, detail="Item type already exists") 
+    
+    new_item_type = models.ItemType(type=item_type.type, category=item_type.category)
+    db.add(new_item_type)
+    db.commit()
+    db.refresh(new_item_type)
+    return new_item_type
+
+@app.post("/products/", response_model=schemas.ProductResponse)
+def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)):
+    existing_product = db.query(models.Product).filter(models.Product.name == product.name).first()
+    if existing_product:
+        raise HTTPException(status_code=400, detail="Product with this name already exists")
+    
+    new_product = models.Product(name=product.name, price=product.price, type_id=product.type_id)
+    db.add(new_product)
+    db.commit()
+    db.refresh(new_product)
+    return new_product
+
+@app.post("/orders/", response_model=schemas.OrderResponse)
+def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
+    new_order = models.Order(waiter_id=order.waiter_id, table_nr=order.table_nr, status="In Progress")
+    db.add(new_order)
+    db.commit()
+    db.refresh(new_order)
+
+    for item in order.items:
+        new_item = models.OrderItem(order_id=new_order.id, product_id=item.product_id, quantity=item.quantity, description=item.description)
+        db.add(new_item)
+    
+    db.commit()
+    db.refresh(new_order)
+    return new_order
