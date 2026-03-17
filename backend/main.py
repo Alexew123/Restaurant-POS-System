@@ -2,11 +2,21 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from database import SessionLocal
 import models
 import schemas
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials = True,
+    allow_methods=["*"],
+    allow_headers=["*"])
+
 
 def get_db():
     db = SessionLocal()
@@ -89,3 +99,14 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_order)
     return new_order
+
+@app.post("/login/", response_model=schemas.LoginResponse)
+def login(request: schemas.LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.pin_code == request.pin_code).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid PIN code")
+    
+    return {"message": "Login succesful",
+            "id": user.id,
+            "name": user.name,
+            "role_id": user.role_id}

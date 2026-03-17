@@ -86,5 +86,11 @@ class OrderResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-
+class LoginRequest(BaseModel):
+    pin_code: str
     
+class LoginResponse(BaseModel):
+    message: str
+    id: int
+    name: str
+    role_id: int
