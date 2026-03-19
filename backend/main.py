@@ -55,7 +55,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="User with this PIN code already exists")
 
-    new_user = models.User(name=user.name, pin_code=user.pin_code, role_id=user.role_id)
+    new_user = models.User(name=user.name, pin_code=user.pin_code, role_id=user.role_id, hourly_rate=user.hourly_rate)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)

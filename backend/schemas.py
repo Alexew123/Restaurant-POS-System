@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+from decimal import Decimal
 
 
 # Roles
@@ -18,12 +19,15 @@ class UserCreate(BaseModel):
     name: str
     pin_code: str = Field(..., min_length=4, max_length=4)
     role_id: int
+    hourly_rate: Decimal
 
 
 class UserResponse(BaseModel):
     id: int
     name: str
     role_id: int
+    hourly_rate: Decimal
+    deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -85,7 +89,7 @@ class OrderResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
+# Login
 class LoginRequest(BaseModel):
     pin_code: str
     
@@ -94,3 +98,17 @@ class LoginResponse(BaseModel):
     id: int
     name: str
     role_id: int
+
+# Shifts
+class ShiftCreate(BaseModel):
+    notes: Optional[str] = None
+
+class ShiftResponse(BaseModel):
+    id: int
+    user_id: int
+    hourly_rate: Decimal
+    clock_in_time: datetime
+    clock_out_time: Optional[datetime] = None
+    notes: Optional[str] = None
+
+    model_config = {"from_attributes": True}
