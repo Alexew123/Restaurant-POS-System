@@ -31,6 +31,12 @@ class UserResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+class UserUpdate(BaseModel):
+    name: str
+    pin_code: str | None = None
+    role_id: int
+    hourly_rate: Decimal
+
 # Item Types
 class ItemTypeCreate(BaseModel):
     type: str

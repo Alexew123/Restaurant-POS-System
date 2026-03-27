@@ -1,9 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-
 from fastapi.middleware.cors import CORSMiddleware
-
+from datetime import datetime, timezone
 from database import SessionLocal
 import models
 import schemas
@@ -110,3 +109,38 @@ def login(request: schemas.LoginRequest, db: Session = Depends(get_db)):
             "id": user.id,
             "name": user.name,
             "role_id": user.role_id}
+
+@app.get("/users/", response_model=list[schemas.UserResponse])
+def get_active_users(db: Session = Depends(get_db)):
+    users = db.query(models.User).filter(models.User.deleted_at == None).all()
+    return users
+
+@app.get("/roles/", response_model=list[schemas.RoleResponse])
+def get_roles(db: Session = Depends(get_db)):
+    roles = db.query(models.Role).all()
+    return roles
+
+@app.put("/users/{user_id}", response_model=schemas.UserResponse)
+def update_user(user_id: int, user_update: schemas.UserUpdate, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db_user.name = user_update.name
+    if user_update.pin_code and user_update.pin_code.strip() != "":
+        db_user.pin_code = user_update.pin_code
+    db_user.role_id = user_update.role_id
+    db_user.hourly_rate = user_update.hourly_rate
+
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    db_user.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"message": "User marked as deleted"}
