@@ -46,6 +46,7 @@ class ItemTypeResponse(BaseModel):
     id: int
     type: str
     category: str
+    deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
     
@@ -53,7 +54,7 @@ class ItemTypeResponse(BaseModel):
 # Products
 class ProductCreate(BaseModel):
     name: str
-    price: float
+    price: float = Field(..., gt=0, description="Price must be strictly positive")
     type_id: int
 
 class ProductResponse(BaseModel):
@@ -61,6 +62,7 @@ class ProductResponse(BaseModel):
     name: str
     price: float
     type_id: int
+    deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

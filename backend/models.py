@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Numeric, Text, Boolean,  DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Numeric, Text, Boolean, DateTime, Index 
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -16,7 +16,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
-    pin_code = Column(String(4), unique=True, nullable=False)
+    pin_code = Column(String(4), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"))
     hourly_rate = Column(Numeric(10,2), default=0.00)
     deleted_at = Column(DateTime, nullable=True, default=None)
@@ -28,8 +28,9 @@ class ItemType(Base):
     __tablename__ = "item_types"
 
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(String(50), unique=True, nullable=False)
+    type = Column(String(50), nullable=False)
     category = Column(String(50), nullable=False)
+    deleted_at = Column(DateTime, nullable=True, default=None)
 
     products = relationship("Product", back_populates="category")
 
@@ -39,6 +40,7 @@ class Product(Base):
     name = Column(String(100), nullable=False)
     price = Column(Numeric(10, 2), nullable=False)
     type_id = Column(Integer, ForeignKey("item_types.id"))
+    deleted_at = Column(DateTime, nullable=True, default=None)
 
     category = relationship("ItemType", back_populates="products")
 
@@ -50,6 +52,7 @@ class Order(Base):
     table_nr = Column(Integer, nullable=False)
     status = Column(String(20), nullable=False, default="In Progress")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime, nullable=True, default=None)
 
     waiter = relationship("User")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
