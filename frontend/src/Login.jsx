@@ -33,8 +33,10 @@ function Login() {
             localStorage.setItem('userRole', data.role_id);
             navigate('/manager-dashboard');
           }else{
-            alert(`Welcome, ${data.name}. You are not a manager.`);
-            setPin("");
+            localStorage.setItem('userRole', data.role_id);
+            localStorage.setItem('userName', data.name);
+            localStorage.setItem('userId', data.id);
+            navigate('/waiter-dashboard');
           }
         } else {
           console.error("Login failed: ", data.detail);

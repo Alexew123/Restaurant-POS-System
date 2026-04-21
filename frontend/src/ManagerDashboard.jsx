@@ -31,15 +31,19 @@ export default function ManagerDashboard() {
         }
     }
 
+    // Shift State
+    const [shifts, setShifts] = useState([]);
+    const [isEditShiftModalOpen, setIsEditShiftModalOpen] = useState(false);
+    const [editShift, setEditShift] = useState(null);
+
+
     useEffect(() => {
         if (activeTab === "employees") {
             fetch("http://localhost:8000/users/")
                 .then(response => response.json())
                 .then(data => setEmployees(data))
                 .catch(error => console.error("Error fetching employees: ", error));
-        }
-
-        if (activeTab === "products") {
+        }else if (activeTab === "products") {
             Promise.all([
             fetch("http://localhost:8000/products/").then(res => res.json()),
             fetch("http://localhost:8000/item-types/").then(res => res.json())
@@ -49,6 +53,11 @@ export default function ManagerDashboard() {
                 setItemTypes(itemTypesData);
             })
             .catch(error => console.error("Error fetching products or item types: ", error));
+        } else if (activeTab === "shifts") {
+            fetch("http://localhost:8000/shifts/")
+                .then(response => response.json())
+                .then(data => setShifts(data))
+                .catch(error => console.error("Error fetching shifts: ", error));
         }
     }, [activeTab]);
     
@@ -350,8 +359,64 @@ export default function ManagerDashboard() {
         }
     };
 
+    const formatDisplayDate = (dateString) => {
+        if (!dateString) return "Active Now";
+        const date = new Date(dateString);
+        const formattedDate = date.toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+        });
+        return formattedDate.replace(",", "");
+    }
 
+    const formatForInput = (dateString) => {
+        if (!dateString) return "";
+        const d = new Date(dateString);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().slice(0,16);
+    }
 
+    const handleOpenEditShift = (shift) => {
+        setEditShift({...shift});
+        setIsEditShiftModalOpen(true);
+    }
+
+    const handleEditShiftSubmit = async (e) => {
+        e.preventDefault();
+        try{
+            const payload = {
+                clock_in_time: editShift.clock_in_time ? new Date(editShift.clock_in_time).toISOString() : null,
+                clock_out_time: editShift.clock_out_time ? new Date(editShift.clock_out_time).toISOString() : null,
+                notes: editShift.notes || ""
+            }
+            
+            const response = await fetch(`http://localhost:8000/shifts/${editShift.id}`, {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                const refreshedShift = await fetch(`http://localhost:8000/shifts/`);
+                const updatedShifts = await refreshedShift.json();
+                setShifts(updatedShifts);
+
+                setIsEditShiftModalOpen(false);
+                setEditShift(null);
+            }else{
+                const errorData = await response.json();
+                console.error("Error updating shift: ", errorData);
+                alert("Failed to update shift. " + (errorData.detail || ""));
+            }
+        }catch(error){
+            console.error("Error connecting to server: ", error);
+        }
+    }
+    
 
     return (
         <div className="min-h-screen bg-gray-100 font-sans">
@@ -392,6 +457,16 @@ export default function ManagerDashboard() {
                             }`}
                         >
                             Products
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab("shifts")}
+                            className={`px-4 py-2 font-semibold rounded-lg transition-colors ${
+                                activeTab === "shifts"
+                                ? "bg-purple-100 text-purple-700" 
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
+                        >
+                            Shifts
                         </button>
                     </nav>
                 </div>
@@ -552,6 +627,65 @@ export default function ManagerDashboard() {
                         </div>
                     </div>
                 )}
+
+                {/* View 4: The Shifts Tab */}
+                {activeTab === "shifts" && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h2 className="text-2xl font-bold text-gray-800">Shift Management</h2>
+                        </div>
+                        
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-gray-50/80 border-b border-gray-100">
+                                    <tr className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+                                        <th className="p-4">Employee</th>
+                                        <th className="p-4">Clock In</th>
+                                        <th className="p-4">Clock Out</th>
+                                        <th className="p-4">Wage</th>
+                                        <th className="p-4">Notes</th>
+                                        <th className="p-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {shifts.map((shift) => (
+                                        <tr key={shift.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="p-4 font-medium text-gray-800">{shift.user_name}</td>
+                                            <td className="p-4 text-gray-600">{formatDisplayDate(shift.clock_in_time)}</td>
+                                            <td className="p-4">
+                                                {!shift.clock_out_time ? (
+                                                    <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-md border border-green-200">
+                                                        Active Now
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-600">{formatDisplayDate(shift.clock_out_time)}</span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-gray-600">${shift.hourly_rate}/hr</td>
+                                            <td className="p-4 text-gray-500 text-sm max-w-[200px] truncate">
+                                                {shift.notes || <span className="text-gray-300 italic">No notes</span>}
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <button 
+                                                    onClick={() => handleOpenEditShift(shift)}
+                                                    className="text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors"
+                                                >
+                                                    Edit Shift
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {shifts.length === 0 && (
+                                        <tr>
+                                            <td colSpan="6" className="p-8 text-center text-gray-500">No shifts recorded yet.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
             </main>
 
             {/* Add Employee Modal */}
@@ -1029,6 +1163,72 @@ export default function ManagerDashboard() {
                                     className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
                                 >
                                     Update Type
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Shift Modal */}
+            {isEditShiftModalOpen && editShift && (
+                <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
+                    <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Edit Shift</h2>
+                        <p className="text-gray-500 mb-6">Editing record for <span className="font-semibold text-gray-700">{editShift.user_name}</span></p>
+                        
+                        <form onSubmit={handleEditShiftSubmit} className="flex flex-col gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Clock In Time</label>
+                                <input 
+                                    type="datetime-local" 
+                                    required
+                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                    value={formatForInput(editShift.clock_in_time)}
+                                    onChange={(e) => setEditShift({...editShift, clock_in_time: e.target.value})}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex justify-between">
+                                    <span>Clock Out Time</span>
+                                    {!editShift.clock_out_time && <span className="text-green-600 text-xs font-bold">Currently Active</span>}
+                                </label>
+                                <input 
+                                    type="datetime-local" 
+                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                    value={formatForInput(editShift.clock_out_time)}
+                                    onChange={(e) => setEditShift({...editShift, clock_out_time: e.target.value})}
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Leave blank if the shift is still active.</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Manager Notes</label>
+                                <textarea 
+                                    rows="3"
+                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none resize-none"
+                                    value={editShift.notes || ""}
+                                    onChange={(e) => setEditShift({...editShift, notes: e.target.value})}
+                                ></textarea>
+                            </div>
+
+                            <div className="flex justify-end gap-3 mt-4">
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        setIsEditShiftModalOpen(false);
+                                        setEditShift(null);
+                                    }}
+                                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit"
+                                    className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    Save Changes
                                 </button>
                             </div>
                         </form>

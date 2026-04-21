@@ -120,3 +120,19 @@ class ShiftResponse(BaseModel):
     notes: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+class ShiftUpdate(BaseModel):
+    clock_in_time: Optional[datetime] = None
+    clock_out_time: Optional[datetime] = None
+    notes: Optional[str] = None
+
+class ManagerShiftResponse(BaseModel):
+    id: int
+    user_id: int
+    user_name: str
+    hourly_rate: float
+    clock_in_time: datetime
+    clock_out_time: Optional[datetime] = None
+    notes: Optional[str] = None
+
+    model_config = {"from_attributes": True}

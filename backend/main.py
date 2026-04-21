@@ -261,4 +261,89 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     return new_order
 
 
+# Waiter Shifts Endpoints
 
+'''Helper function to get the current active shift for a user'''
+def get_current_active_shift(db: Session, user_id: int):
+    return db.query(models.Shift).filter(
+        models.Shift.user_id == user_id,
+        models.Shift.clock_out_time == None
+    ).first()
+
+@app.get("users/{user_id}/shift/active", response_model=list[schemas.ShiftResponse])
+def get_active_shift(user_id: int, db: Session = Depends(get_db)):
+    active_shift = get_current_active_shift(db, user_id)
+    if not active_shift:
+        raise HTTPException(status_code=404, detail="No active shift found for this user")
+    return active_shift
+
+@app.post("/users/{user_id}/shift/clock-in", response_model=schemas.ShiftResponse)
+def clock_in(user_id: int, db: Session = Depends(get_db)):
+    if (get_current_active_shift(db, user_id)):
+        raise HTTPException(status_code=400, detail="User already has an active shift")
+    
+    user = db.query(models.User).filter(
+        models.User.id == user_id, 
+        models.User.deleted_at == None
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_shift = models.Shift(
+        user_id=user_id,
+        hourly_rate=user.hourly_rate,
+        clock_in_time=datetime.now(timezone.utc)
+    )
+
+    db.add(new_shift)
+    db.commit()
+    db.refresh(new_shift)
+    return new_shift
+
+@app.put("/users/{user_id}/shift/clock-out", response_model=schemas.ShiftResponse)
+def clock_out(user_id: int, db: Session = Depends(get_db)):
+    active_shift = get_current_active_shift(db, user_id)
+    if not active_shift:
+        raise HTTPException(status_code=404, detail="No active shift found for this user")
+
+    active_shift.clock_out_time = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(active_shift)
+    return active_shift
+
+# Manager Shift Endpoints
+
+@app.get("/shifts/", response_model=list[schemas.ManagerShiftResponse])
+def get_all_shifts(db: Session = Depends(get_db)):
+    records = db.query(models.Shift, models.User).join(
+        models.User, models.Shift.user_id == models.User.id).order_by(models.Shift.clock_in_time.desc()).all()
+    
+    result = []
+    for shift, user in records:
+        result.append({
+            "id": shift.id,
+            "user_id": user.id,
+            "user_name": user.name if user else "Unknown",
+            "hourly_rate": float(shift.hourly_rate),
+            "clock_in_time": shift.clock_in_time,
+            "clock_out_time": shift.clock_out_time,
+            "notes": shift.notes
+        })
+        
+    return result
+
+@app.put("/shifts/{shift_id}", response_model=schemas.ShiftResponse)
+def update_shift(shift_id: int, shift_update: schemas.ShiftUpdate, db: Session = Depends(get_db)):
+    db_shift = db.query(models.Shift).filter(models.Shift.id == shift_id).first()
+    if not db_shift:
+        raise HTTPException(status_code=404, detail="Shift not found")
+    if shift_update.clock_in_time is not None:
+        db_shift.clock_in_time = shift_update.clock_in_time
+    if shift_update.clock_out_time is not None:
+        db_shift.clock_out_time = shift_update.clock_out_time
+    if shift_update.notes is not None:
+        db_shift.notes = shift_update.notes
+
+    db.commit()
+    db.refresh(db_shift)
+    return db_shift
