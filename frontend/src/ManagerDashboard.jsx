@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function ManagerDashboard() {
@@ -36,6 +36,20 @@ export default function ManagerDashboard() {
     const [isEditShiftModalOpen, setIsEditShiftModalOpen] = useState(false);
     const [editShift, setEditShift] = useState(null);
 
+    // Clock In/Out State
+    const [isClockedIn, setIsClockedIn] = useState(false);
+    const userId = localStorage.getItem("userId");
+    const userName = localStorage.getItem("userName") || "Manager";
+
+    useEffect(() => {
+        if (!userId) return;
+        fetch(`http://localhost:8000/users/${userId}/shift/active`)
+            .then(response => {
+                if (response.ok) setIsClockedIn(true);
+                else setIsClockedIn(false);
+            })
+            .catch(error => console.error("Error fetching clock-in status: ", error));
+    }, [userId]);
 
     useEffect(() => {
         if (activeTab === "employees") {
@@ -416,6 +430,27 @@ export default function ManagerDashboard() {
             console.error("Error connecting to server: ", error);
         }
     }
+
+    const handleClockIn = async () => {
+        try{
+            const response = await fetch(`http://localhost:8000/users/${userId}/shift/clock-in`, { method: "POST" });
+            if (response.ok) {
+                setIsClockedIn(true);
+            }
+        }catch(error){
+            console.error("Error connecting to server: ", error);
+        }
+    }
+
+    const handleClockOut = async () => {
+        try{
+            const response = await fetch(`http://localhost:8000/users/${userId}/shift/clock-out`, { method: "PUT" });
+            if (response.ok) setIsClockedIn(false);
+        }catch(error){
+            console.error("Error connecting to server: ", error);
+        }
+
+    }
     
 
     return (
@@ -423,6 +458,8 @@ export default function ManagerDashboard() {
             
             {/* Top Navigation Bar */}
             <header className="bg-white shadow-sm px-8 py-4 flex justify-between items-center">
+                
+                {/* LEFT SIDE: Title and Tabs */}
                 <div className="flex items-center gap-8">
                     <h1 className="text-2xl font-bold text-gray-800">Manager Dashboard</h1>
                     
@@ -471,13 +508,48 @@ export default function ManagerDashboard() {
                     </nav>
                 </div>
 
-                {/* The Logout Button */}
-                <button 
-                    onClick={handleLogout}
-                    className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-sm hover:bg-red-700 active:scale-95 transition-all duration-200"
-                >
-                    Log Out
-                </button>
+                {/* RIGHT SIDE: Clock and Logout*/}
+                <div className="flex items-center gap-4">
+                    
+                    <div className="flex items-center gap-3 border-r border-gray-200 pr-4">
+                        {isClockedIn ? (
+                            <>
+                                <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-bold rounded-full flex items-center gap-2 border border-green-200">
+                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                    Clocked In
+                                </span>
+                                <button 
+                                    onClick={handleClockOut}
+                                    className="px-3 py-1 bg-white text-red-600 text-xs font-bold rounded-full border border-red-200 hover:bg-red-50 transition-colors"
+                                >
+                                    Clock Out
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <span className="px-3 py-1 bg-gray-100 text-gray-500 text-sm font-bold rounded-full flex items-center gap-2 border border-gray-200">
+                                    <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                    Off the Clock
+                                </span>
+                                <button 
+                                    onClick={handleClockIn}
+                                    className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full hover:bg-green-600 transition-colors"
+                                >
+                                    Clock In
+                                </button>
+                            </>
+                        )}
+                    </div>
+
+                    {/* The Logout Button */}
+                    <button 
+                        onClick={handleLogout}
+                        className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-sm hover:bg-red-700 active:scale-95 transition-all duration-200"
+                    >
+                        Log Out
+                    </button>
+                </div>
+                
             </header>
 
             {/* Main Content Area */}

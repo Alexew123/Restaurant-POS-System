@@ -52,7 +52,6 @@ class Order(Base):
     table_nr = Column(Integer, nullable=False)
     status = Column(String(20), nullable=False, default="In Progress")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    deleted_at = Column(DateTime, nullable=True, default=None)
 
     waiter = relationship("User")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")

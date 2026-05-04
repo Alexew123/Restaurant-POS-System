@@ -11,7 +11,7 @@ function App() {
             <Route path="/" element={<Login />} />
             
             <Route path="/manager-dashboard" element={<ProtectedRoute requiredRole={1}> <ManagerDashboard /> </ProtectedRoute>} />
-            <Route path="/waiter-dashboard" element={<ProtectedRoute requiredRole={2}> <WaiterDashboard /> </ProtectedRoute>} />
+            <Route path="/waiter-dashboard" element={<ProtectedRoute requiredRole={3}> <WaiterDashboard /> </ProtectedRoute>} />
 
         </Routes>
         </BrowserRouter>

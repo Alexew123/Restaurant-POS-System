@@ -245,6 +245,19 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     return {"message": "Product marked as deleted"}
 
 # Orders Endpoints
+@app.get("/orders/active", response_model=list[schemas.OrderResponse])
+def get_active_orders(db: Session = Depends(get_db)):
+    orders = db.query(models.Order).filter(
+        models.Order.status == "In Progress"
+    ).all()
+
+    for order in orders:
+        if order.waiter_id:
+            order.waiter_name = order.waiter.name
+        else:
+            order.waiter_name = "Unknown"
+    return orders
+
 @app.post("/orders/", response_model=schemas.OrderResponse)
 def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     new_order = models.Order(waiter_id=order.waiter_id, table_nr=order.table_nr, status="In Progress")
@@ -261,7 +274,7 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     return new_order
 
 
-# Waiter Shifts Endpoints
+# Shifts Endpoints
 
 '''Helper function to get the current active shift for a user'''
 def get_current_active_shift(db: Session, user_id: int):
@@ -270,7 +283,7 @@ def get_current_active_shift(db: Session, user_id: int):
         models.Shift.clock_out_time == None
     ).first()
 
-@app.get("users/{user_id}/shift/active", response_model=list[schemas.ShiftResponse])
+@app.get("/users/{user_id}/shift/active", response_model=schemas.ShiftResponse)
 def get_active_shift(user_id: int, db: Session = Depends(get_db)):
     active_shift = get_current_active_shift(db, user_id)
     if not active_shift:
@@ -311,7 +324,12 @@ def clock_out(user_id: int, db: Session = Depends(get_db)):
     db.refresh(active_shift)
     return active_shift
 
-# Manager Shift Endpoints
+@app.get("/users/{user_id}/shifts/", response_model=list[schemas.ShiftResponse])
+def get_user_shifts(user_id: int, db: Session = Depends(get_db)):
+    shifts = db.query(models.Shift).filter(
+        models.Shift.user_id == user_id
+        ).order_by(models.Shift.clock_in_time.desc()).all()
+    return shifts
 
 @app.get("/shifts/", response_model=list[schemas.ManagerShiftResponse])
 def get_all_shifts(db: Session = Depends(get_db)):
@@ -331,6 +349,7 @@ def get_all_shifts(db: Session = Depends(get_db)):
         })
         
     return result
+
 
 @app.put("/shifts/{shift_id}", response_model=schemas.ShiftResponse)
 def update_shift(shift_id: int, shift_update: schemas.ShiftUpdate, db: Session = Depends(get_db)):

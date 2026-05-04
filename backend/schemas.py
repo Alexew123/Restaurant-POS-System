@@ -90,6 +90,7 @@ class OrderCreate(BaseModel):
 class OrderResponse(BaseModel):
     id: int
     waiter_id: int
+    waiter_name: Optional[str] = None
     table_nr: int
     status: str
     created_at: datetime
