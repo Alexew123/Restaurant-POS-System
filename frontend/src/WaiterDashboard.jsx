@@ -217,11 +217,11 @@ export default function WaiterDashboard() {
         setIsItemModalOpen(true);
     };
 
-    const handleSaveItemEdit = () => {
+    const handleSaveItemEdit = (forceRemove = false) => {
         setTicketItems(prev => {
             const updatedTicket = [...prev];
             
-            if (tempItem.quantity <= 0) {
+            if (forceRemove || tempItem.quantity <= 0) {
                 updatedTicket.splice(editingIndex, 1);
             } else {
                 updatedTicket[editingIndex] = tempItem;
@@ -636,10 +636,7 @@ export default function WaiterDashboard() {
                         {/* Action Buttons */}
                         <div className="flex justify-between items-center gap-4">
                             <button 
-                                onClick={() => {
-                                    setTempItem({...tempItem, quantity: 0});
-                                    handleSaveItemEdit();
-                                }}
+                                onClick={() => handleSaveItemEdit(true)}
                                 className="px-6 py-3 text-red-600 font-bold hover:bg-red-50 rounded-xl transition-colors"
                             >
                                 Remove Item
