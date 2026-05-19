@@ -14,7 +14,7 @@ export default function ManagerDashboard() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem("userRole");
+        sessionStorage.removeItem("userRole");
         navigate("/");
     };
 
@@ -38,8 +38,8 @@ export default function ManagerDashboard() {
 
     // Clock In/Out State
     const [isClockedIn, setIsClockedIn] = useState(false);
-    const userId = localStorage.getItem("userId");
-    const userName = localStorage.getItem("userName") || "Manager";
+    const userId = sessionStorage.getItem("userId");
+    const userName = sessionStorage.getItem("userName") || "Manager";
 
     useEffect(() => {
         if (!userId) return;
@@ -443,6 +443,11 @@ export default function ManagerDashboard() {
     }
 
     const handleClockOut = async () => {
+
+        if (!userId || userId === "null"){
+            alert("Session error: User ID not found. Please log in again.");
+            return;
+        }
         try{
             const response = await fetch(`http://localhost:8000/users/${userId}/shift/clock-out`, { method: "PUT" });
             if (response.ok) setIsClockedIn(false);
@@ -450,6 +455,23 @@ export default function ManagerDashboard() {
             console.error("Error connecting to server: ", error);
         }
 
+    }
+
+    const calculateHoursWorked = (clockIn, clockOut) => {
+        if (!clockIn) return "-";
+
+        const startTime = new Date(clockIn);
+
+        const endTime = clockOut ? new Date(clockOut) : new Date();
+
+        const diffMs = endTime - startTime;
+
+        const diffMins = Math.floor(diffMs / 60000);
+
+        const hours = Math.floor(diffMins / 60);
+        const mins = diffMins % 60;
+
+        return `${hours}h ${mins}m`;
     }
     
 
@@ -715,6 +737,7 @@ export default function ManagerDashboard() {
                                         <th className="p-4">Clock In</th>
                                         <th className="p-4">Clock Out</th>
                                         <th className="p-4">Wage</th>
+                                        <th className="p-4">Hours Worked</th>
                                         <th className="p-4">Notes</th>
                                         <th className="p-4 text-right">Actions</th>
                                     </tr>
@@ -734,6 +757,7 @@ export default function ManagerDashboard() {
                                                 )}
                                             </td>
                                             <td className="p-4 text-gray-600">${shift.hourly_rate}/hr</td>
+                                            <td className="p-4 text-gray-600">{calculateHoursWorked(shift.clock_in_time, shift.clock_out_time)}</td>
                                             <td className="p-4 text-gray-500 text-sm max-w-[200px] truncate">
                                                 {shift.notes || <span className="text-gray-300 italic">No notes</span>}
                                             </td>

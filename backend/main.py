@@ -1,11 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 from database import SessionLocal
+from typing import List
 import models
 import schemas
+
 
 app = FastAPI()
 
@@ -15,6 +17,34 @@ app.add_middleware(
     allow_credentials = True,
     allow_methods=["*"],
     allow_headers=["*"])
+
+class KitchenConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast_order(self, order_data: dict):
+        for connection in self.active_connections:
+            await connection.send_json({"type": "NEW_ORDER", "order": order_data})
+
+manager = KitchenConnectionManager()
+
+@app.websocket("/ws/kitchen")
+async def kitchen_websocket(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
 
 
 def get_db():
@@ -248,7 +278,7 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
 @app.get("/orders/active", response_model=list[schemas.OrderResponse])
 def get_active_orders(db: Session = Depends(get_db)):
     orders = db.query(models.Order).filter(
-        models.Order.status == "In Progress"
+        models.Order.status.in_(["In Progress", "Ready"])
     ).all()
 
     for order in orders:
@@ -273,6 +303,73 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     db.refresh(new_order)
     return new_order
 
+@app.put("/orders/{order_id}/status", response_model=schemas.OrderResponse)
+async def update_order_status(order_id: int, payload: schemas.OrderStatusUpdate, db: Session = Depends(get_db)):
+    db_order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    db_order.status = payload.status
+    db.commit()
+
+    updated_order = db.query(models.Order).options(
+        joinedload(models.Order.items)).filter(models.Order.id == order_id).first()
+    
+    order_dict = {
+        "id": updated_order.id,
+        "table_nr": updated_order.table_nr,
+        "status": updated_order.status,
+        "waiter_id": updated_order.waiter_id,
+        "created_at": updated_order.created_at.isoformat(),
+        "items": [
+            {
+                "id": i.id,
+                "order_id": i.order_id,
+                "product_id": i.product_id,
+                "quantity": i.quantity,
+                "description": i.description
+            } for i in updated_order.items
+        ]
+    }
+    await manager.broadcast_order(order_dict)
+    return order_dict
+
+@app.post("/orders/{order_id}/items")
+async def add_items_to_order(order_id: int, payload: schemas.OrderItemsAdd, db: Session = Depends(get_db)):
+    db_order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    for item in payload.items:
+        new_item = models.OrderItem(
+            order_id=order_id,
+            product_id=item.id,
+            quantity=item.quantity,
+            description=item.description
+        )
+        db.add(new_item)
+    
+    db_order.status = "In Progress"
+    db.commit()
+
+    updated_order = db.query(models.Order).options(joinedload(models.Order.items)).filter(models.Order.id == order_id).first()
+    
+    order_dict = {
+        "id": updated_order.id,
+        "table_nr": updated_order.table_nr,
+        "status": updated_order.status,
+        "waiter_id": updated_order.waiter_id,
+        "created_at": updated_order.created_at.isoformat(),
+        "items": [
+            {
+                "id": i.id,
+                "product_id": i.product_id,
+                "quantity": i.quantity,
+                "description": i.description
+            } for i in updated_order.items
+        ]
+    }
+    await manager.broadcast_order(order_dict)
+    return order_dict
 
 # Shifts Endpoints
 
@@ -366,3 +463,4 @@ def update_shift(shift_id: int, shift_update: schemas.ShiftUpdate, db: Session =
     db.commit()
     db.refresh(db_shift)
     return db_shift
+

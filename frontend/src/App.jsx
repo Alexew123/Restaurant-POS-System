@@ -3,6 +3,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import Login from "./Login";
 import ManagerDashboard from "./ManagerDashboard";
 import WaiterDashboard from "./WaiterDashboard";
+import KitchenDashboard from "./KitchenDashboard";
 
 function App() {
     return (
@@ -11,8 +12,8 @@ function App() {
             <Route path="/" element={<Login />} />
             
             <Route path="/manager-dashboard" element={<ProtectedRoute requiredRole={1}> <ManagerDashboard /> </ProtectedRoute>} />
+            <Route path="/kitchen-dashboard" element={<ProtectedRoute requiredRole={2}> <KitchenDashboard /> </ProtectedRoute>} />
             <Route path="/waiter-dashboard" element={<ProtectedRoute requiredRole={3}> <WaiterDashboard /> </ProtectedRoute>} />
-
         </Routes>
         </BrowserRouter>
     );

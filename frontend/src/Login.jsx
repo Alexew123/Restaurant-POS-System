@@ -30,19 +30,19 @@ function Login() {
         if (response.ok) {
           console.log("Success! Data: ", data);
           if (data.role_id === 1) {
-            localStorage.setItem('userRole', data.role_id);
-            localStorage.setItem('userName', data.name);
-            localStorage.setItem('userId', data.id);
+            sessionStorage.setItem('userRole', data.role_id);
+            sessionStorage.setItem('userName', data.name);
+            sessionStorage.setItem('userId', data.id);
             navigate('/manager-dashboard');
           }else if(data.role_id === 2){
-            localStorage.setItem('userRole', data.role_id);
-            localStorage.setItem('userName', data.name);
-            localStorage.setItem('userId', data.id);
+            sessionStorage.setItem('userRole', data.role_id);
+            sessionStorage.setItem('userName', data.name);
+            sessionStorage.setItem('userId', data.id);
             navigate('/kitchen-dashboard');
           }else if (data.role_id === 3) {
-            localStorage.setItem('userRole', data.role_id);
-            localStorage.setItem('userName', data.name);
-            localStorage.setItem('userId', data.id);
+            sessionStorage.setItem('userRole', data.role_id);
+            sessionStorage.setItem('userName', data.name);
+            sessionStorage.setItem('userId', data.id);
             navigate('/waiter-dashboard');
           }
         } else {

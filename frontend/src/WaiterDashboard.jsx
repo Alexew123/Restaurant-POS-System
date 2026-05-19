@@ -5,13 +5,13 @@ export default function WaiterDashboard() {
     const navigate = useNavigate();
 
     const [isClockedIn, setIsClockedIn] = useState(false);
-    const [userName, setUserName] = useState(localStorage.getItem("userName") || "Waiter"); 
-    const userId = localStorage.getItem("userId");
+    const [userName, setUserName] = useState(sessionStorage.getItem("userName") || "Waiter"); 
+    const userId = sessionStorage.getItem("userId");
 
     const handleLogout = () => {
-        localStorage.removeItem("userRole");
-        localStorage.removeItem("userName");
-        localStorage.removeItem("userId");
+        sessionStorage.removeItem("userRole");
+        sessionStorage.removeItem("userName");
+        sessionStorage.removeItem("userId");
         navigate("/");
     };
 
@@ -69,6 +69,7 @@ export default function WaiterDashboard() {
     const [activeView, setActiveView] = useState("home");
     const [activeTable, setActiveTable] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [activeOrderId, setActiveOrderId] = useState(null);
 
     const [shifts, setShifts] = useState([]);
 
@@ -142,6 +143,34 @@ export default function WaiterDashboard() {
         }
     }, [activeView, userId]);
 
+    useEffect(() => {
+        const ws = new WebSocket("ws://localhost:8000/ws/kitchen");
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === "NEW_ORDER" && data.order.status === "Completed") {
+                
+                setTables(prevTables => 
+                    prevTables.map(table => 
+                        table.id === parseInt(data.order.table_nr)
+                            ? { 
+                                ...table, 
+                                status: "available", 
+                                orderId: null, 
+                                owner: null, 
+                                existingItems: [] 
+                              }
+                            : table
+                    )
+                );
+            }
+        };
+
+        return () => ws.close();
+    }, []);
+    
+
     const [ticketItems, setTicketItems] = useState([]);
     const [products, setProducts] = useState([]);
     const [itemTypes, setItemTypes] = useState([]);
@@ -182,6 +211,7 @@ export default function WaiterDashboard() {
 
         if (table.status === "mine") {
             setActiveTable(table.id);
+            setActiveOrderId(table.orderId);
             setActiveView("menu");
         }
 
@@ -200,6 +230,7 @@ export default function WaiterDashboard() {
             .then(response => response.json())
             .then(data => {
                 setActiveTable(table.id);
+                setActiveOrderId(data.id);
                 setActiveView("menu");
             })
             .catch(error => console.error("Error creating order:", error))
@@ -231,6 +262,31 @@ export default function WaiterDashboard() {
         setIsItemModalOpen(false);
         setTempItem(null);
     };
+
+    const handleSendToKitchen = async () => {
+        if (!activeOrderId || ticketItems.length === 0) return;
+
+        try {
+            const response = await fetch(`http://localhost:8000/orders/${activeOrderId}/items`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ items: ticketItems })
+            });
+
+            if (response.ok) {
+                setTicketItems([]);
+                setActiveView("tables");
+                setActiveTable(null);
+                setActiveOrderId(null);
+            }else{
+                console.error("Failed to send to kitchen");
+            }
+
+            
+        } catch (error) {
+            console.error("Error sending items to kitchen:", error);
+        }
+    }
 
     return (
         <div className="min-h-screen bg-gray-100 font-sans flex flex-col">
@@ -581,7 +637,15 @@ export default function WaiterDashboard() {
                                     ${ticketItems.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}
                                 </span>
                             </div>
-                            <button className="w-full py-4 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold text-xl shadow-lg hover:shadow-xl transition-all active:scale-95">
+                            <button 
+                                onClick={handleSendToKitchen}
+                                disabled={ticketItems.length === 0}
+                                className={`w-full py-4 rounded-xl font-bold text-xl shadow-lg transition-all ${
+                                    ticketItems.length === 0 
+                                        ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none" 
+                                        : "bg-green-500 hover:bg-green-600 text-white hover:shadow-xl active:scale-95"
+                                }`}
+                            >
                                 Send to Kitchen
                             </button>
                         </div>
@@ -653,7 +717,7 @@ export default function WaiterDashboard() {
                                     Cancel
                                 </button>
                                 <button 
-                                    onClick={handleSaveItemEdit}
+                                    onClick={() => handleSaveItemEdit(false)}
                                     className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 hover:shadow-lg active:scale-95 transition-all"
                                 >
                                     Save

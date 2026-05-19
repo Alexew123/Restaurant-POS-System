@@ -81,6 +81,14 @@ class OrderItemResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+class ItemCreate(BaseModel):
+    id: int
+    quantity: int
+    description: Optional[str] = None
+
+class OrderItemsAdd(BaseModel):
+    items: List[ItemCreate]
+
 # Orders
 class OrderCreate(BaseModel):
     waiter_id: int
@@ -97,6 +105,9 @@ class OrderResponse(BaseModel):
     items: List[OrderItemResponse]
 
     model_config = {"from_attributes": True}
+
+class OrderStatusUpdate(BaseModel):
+    status: str
 
 # Login
 class LoginRequest(BaseModel):
